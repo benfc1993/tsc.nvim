@@ -148,7 +148,21 @@ require('tsc').setup({
 })
 ```
 
+Be warned this will run a tsc process for each tsconfig file found in your project unless it is a composite file with no includes.
+
 With this configuration, tsc.nvim will typecheck all projects in the monorepo, taking into account project references and incremental builds.
+
+If you like to run `tsc` with the build option you can, however it is advisable to disable run_as_monorepo otherwise any tsconfig without an `outFile` or `outDir` with generate build files beside your Typescript files. A config like this would normally be advisable:
+
+```lua
+require('tsc').setup({
+    auto_start_watch_mode = false,
+    run_as_monorepo = true,
+    flags = {
+        build = true
+    }
+})
+```
 
 ### Can I use `Trouble` for the quickfix list?
 

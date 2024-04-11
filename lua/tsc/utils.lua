@@ -39,9 +39,16 @@ M.find_tsconfigs = function(run_mono_repo)
     return {}
   end
 
-  for s in found_configs:gmatch("[^\r\n]+") do
-    table.insert(tsconfigs, s)
+  for config_file in found_configs:gmatch("[^\r\n]+") do
+    local config_is_composite = vim.fn.system("grep '\"composite\":' " .. config_file)
+    local config_has_includes = vim.fn.system("grep '\"include\":' " .. config_file)
+    local valid_config = (config_has_includes ~= "" and config_is_composite ~= "") or config_is_composite == ""
+
+    if valid_config then
+      table.insert(tsconfigs, config_file)
+    end
   end
+  print(vim.inspect(tsconfigs))
 
   assert(tsconfigs)
   return tsconfigs

@@ -78,7 +78,6 @@ M.run = function()
   -- Closed over state
   local tsc = config.bin_path
   local errors = {}
-  local files_with_errors = {}
   local notify_record
   local notify_called = false
   local spinner_idx = 1
@@ -164,9 +163,22 @@ M.run = function()
     notify_called = false
     errors = {}
 
+    local files_with_errors = {}
+    local files_count = 0
+
+    local hash = {}
     for _, process in pairs(running_processes) do
       for _, error in ipairs(process.errors) do
-        table.insert(errors, error)
+        local table_string = error.filename .. error.text
+
+        if not hash[table_string] then
+          table.insert(errors, error)
+          hash[table_string] = true
+        end
+        if not files_with_errors[error.filename] then
+          files_with_errors[error.filename] = true
+          files_count = files_count + 1
+        end
       end
     end
 
@@ -197,7 +209,7 @@ M.run = function()
 
     vim.notify(
       format_notification_msg(
-        string.format("Type-checking complete. Found %s errors across %s files 💥", #errors, #files_with_errors)
+        string.format("Type-checking complete. Found %s errors across %s files 💥", #errors, files_count)
       ),
       vim.log.levels.ERROR,
       get_notify_options((notify_record and { overwrite = notify_record.id }))
@@ -208,10 +220,6 @@ M.run = function()
     local result = utils.parse_tsc_output(output, config)
 
     running_processes[project].errors = result.errors
-
-    for _, v in ipairs(result.files) do
-      table.insert(files_with_errors, v)
-    end
   end
 
   local total_output = {}
@@ -246,9 +254,7 @@ M.run = function()
       on_stdout = function(_, output)
         on_stdout(output, project)
       end,
-      on_exit = function()
-        on_exit()
-      end,
+      on_exit = on_exit,
       stdout_buffered = true,
     }
   end
@@ -263,14 +269,22 @@ M.run = function()
       end
     end
 
+    local process_flags = {}
+    if config.flags.build then
+      process_flags = { build = project, project = false, noEmit = false }
+    else
+      process_flags = { project = project, build = false }
+    end
+
     vim.schedule(function()
       running_processes[project] = {
         pid = vim.fn.jobstart(
-          tsc .. " " .. utils.parse_flags(vim.tbl_extend("force", config.flags, { project = project })),
+          tsc .. " " .. utils.parse_flags(vim.tbl_extend("force", config.flags, process_flags)),
           project_opts
         ),
         errors = {},
       }
+      print(vim.inspect(running_processes))
     end)
   end
 end
